@@ -9,7 +9,7 @@ class FilebaseHelper {
 
     public static function write($tableName, $contents, $recordId=null, $overwrite=true) {
         $tablePath = self::tables($tableName);
-        $recordId = self::creatId($tableName,$recordId);
+        $recordId = self::createId($tableName,$recordId);
         if(!array_key_exists('id',$contents)) {
             $contents +=  ['id' => $recordId];
         } else {
@@ -54,7 +54,7 @@ class FilebaseHelper {
     public static function select($tableName, $fieldName, $fieldValue, $operator='=',$range=null) {
         $destinationPath = self::tables($tableName) . '/indexes/' . $fieldName;
         if(!File::exists($destinationPath)) {
-            self::creatIndex($tableName,$fieldName);
+            self::createIndex($tableName,$fieldName);
         }
         $indexes= unserialize(File::get($destinationPath));
         $recordsIds=array();
@@ -110,7 +110,7 @@ class FilebaseHelper {
         }
     }
 
-    public static function creatId($tableName,$recordId=null) {
+    public static function createId($tableName,$recordId=null) {
         if($recordId==null) {
             $tablePath = self::tables($tableName);
             $elements = self::scan($tablePath);
@@ -122,7 +122,7 @@ class FilebaseHelper {
         return $recordId;
     }
 
-    public static function creatIndex($tableName,$fieldName) {
+    public static function createIndex($tableName,$fieldName) {
         $destinationPath = self::tables($tableName) . '/indexes/' . $fieldName;
         if(!File::exists($destinationPath)) {
             File::put($destinationPath, '');
@@ -151,7 +151,7 @@ class FilebaseHelper {
             }
         }
         foreach($fields as $field) {
-            self::creatIndex($tableName,$field);
+            self::createIndex($tableName,$field);
         }
     }
 

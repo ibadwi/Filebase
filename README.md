@@ -1,5 +1,5 @@
 # Filebase
-small project to create dataase engine based on file system, lite and easy
+small project to create database engine based on file system, lite and easy
 
 ## How it works
 
