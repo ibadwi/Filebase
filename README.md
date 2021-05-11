@@ -3,7 +3,7 @@ small project to create dataase engine based on file system, lite and easy
 
 ## How it works
 
-## Create table and insert int table
+## Create table and insert into table
 ### SQL
 ```sql
 CREATE TABLE persons (name varchar(255), age int, gender varchar(255));
@@ -24,7 +24,7 @@ $results= FilebaseHelper::write('persons',['name'=>'iBadwi','age'=>43,'gender'=>
 ## Update record
 ### SQL
 ```sql
-UPDATE persons SET name='Badwi', age='43', gender='male' WHERE id=1;
+UPDATE persons SET name='iBadwi', age='43', gender='male' WHERE id=1;
 ```
 
 ### Filebase
