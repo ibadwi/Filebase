@@ -1,8 +1,9 @@
 # Filebase
 small project to create dataase engine based on file system, lite and easy
 
-How to use
+## How it works
 
+```php
 //###############################################
 //Create table and insert int table
 //###############################################
@@ -87,3 +88,5 @@ $results= FilebaseHelper::tables();
 //###############################################
 //Filebase way, using default database connection
 $results= FilebaseHelper::tableToFile('persons');
+```
+
