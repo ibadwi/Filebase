@@ -8,31 +8,28 @@ use Illuminate\Support\Facades\File;
 class FilebaseHelper {
 
     public static function write($tableName, $contents, $recordId=null, $overwrite=true) {
-        $tablePath = self::tables($tableName);
+        $tablePath = self::tablePath($tableName);
         $recordId = self::createId($tableName,$recordId);
         if(!array_key_exists('id',$contents)) {
             $contents +=  ['id' => $recordId];
         } else {
             $recordId = $contents['id'];
         }
+        //TODO Check if duplicated key
         $recordPath = $tablePath .'/'.$recordId;
         if(!is_array($contents)) {
             $contents = array('contents' => $contents);
         }
         ksort($contents);
-        if(!File::exists($recordPath)) {
-            File::put($recordPath, serialize($contents));
-        } else {
-            if($overwrite==false) {
-                return null;
-            }
-            File::put($recordPath, serialize($contents));
+        if(File::exists($recordPath) && $overwrite == false) {
+            return null;
         }
+        File::put($recordPath, serialize($contents));
         return $contents;
     }
 
     public static function read($tableName, $recordId=null, $descending=false) {
-        $tablePath = self::tables($tableName);
+        $tablePath = self::tablePath($tableName);
         if($recordId==null) { // all records
             $elements = self::scan($tablePath);
             if($descending ==true) {
@@ -51,8 +48,8 @@ class FilebaseHelper {
         return $contents;
     }
 
-    public static function select($tableName, $fieldName, $fieldValue, $operator='=',$range=null) {
-        $destinationPath = self::tables($tableName) . '/indexes/' . $fieldName;
+    public static function select($tableName, $fieldName, $fieldValue, $operator='=',$range=null):array {
+        $destinationPath = self::tablePath($tableName) . '/indexes/' . $fieldName;
         if(!File::exists($destinationPath)) {
             self::createIndex($tableName,$fieldName);
         }
@@ -102,28 +99,32 @@ class FilebaseHelper {
         return $recordsIds;
     }
 
-    public static function delete($tableName, $recordId, $soft=true) {
-        $sourcePath = self::tables($tableName) . '/' . $recordId;
-        $targetPath = self::tables($tableName) . '/deleted/' . $recordId . '_' . date("YmdHis");
+    public static function delete($tableName, $recordId, $soft=true):bool {
+        $sourcePath = self::tablePath($tableName) . '/' . $recordId;
+        $targetPath = self::tablePath($tableName) . '/deleted/' . $recordId . '_' . date("YmdHis");
         if(File::exists($sourcePath)) {
-            rename($sourcePath , $targetPath );
+            if($soft==true) {
+                rename($sourcePath , $targetPath );
+            } else {
+                unlink($sourcePath);
+            }
         }
+        return true;
     }
 
-    public static function createId($tableName,$recordId=null) {
-        if($recordId==null) {
-            $tablePath = self::tables($tableName);
-            $elements = self::scan($tablePath);
-            if(count($elements)==0) {
-                return 1;
+    public static function tables() {
+        $destinationPath = self::filePath();
+        foreach(array_diff(scandir($destinationPath,0), array(".", "..") ) as $table) {
+            if(!is_file($destinationPath . '/' . $table)) {
+                $elements[] = $table;
             }
-            return self::read($tableName, max($elements))['id'] + 1;
         }
-        return $recordId;
+        sort($elements);
+        return $elements;
     }
 
     public static function createIndex($tableName,$fieldName) {
-        $destinationPath = self::tables($tableName) . '/indexes/' . $fieldName;
+        $destinationPath = self::tablePath($tableName) . '/indexes/' . $fieldName;
         if(!File::exists($destinationPath)) {
             File::put($destinationPath, '');
         }
@@ -155,49 +156,71 @@ class FilebaseHelper {
         }
     }
 
-    public static function tableToFile($tableName,$connection=null) {
+    public static function createKey($tableName,$fieldName) {
+        $destinationPath = self::tablePath($tableName) . '/keys/' . $fieldName;
+        if(!File::exists($destinationPath)) {
+            File::put($destinationPath, '');
+        }
+        $index=array();
+        //TODO if duplicate key return error
+        foreach(self::read($tableName) as $records){
+            $record= self::read($tableName,$records);
+            if(isset($record[$fieldName])) {
+                $index+= [$records => $record[$fieldName]];
+            }
+        }
+        File::put($destinationPath, serialize($index));
+    }
+
+    public static function tableToFile($tableName,$connection=null):bool {
         if($connection==null) {
             $connection = env('DB_CONNECTION');
+        }
+        if(!DB::connection($connection)->getSchemaBuilder()->hasTable($tableName)) {
+            return false;
         }
         $records = DB::connection($connection)
             ->table($tableName)
             ->get();
+        if(!isset($records)) {
+            return false;
+        }
         foreach($records as $record) {
             self::write($tableName,(array)$record);
         }
+        return true;
     }
 
-    public static function tables($tableName=null) {
-        $destinationPath = self::filePath($tableName,true);
-        if($tableName==null){
-            foreach(array_diff(scandir($destinationPath,0), array(".", "..") ) as $table) {
-                if(!is_file($destinationPath . '/' . $table)) {
-                    $elements[] = $table;
-                }
+    private static function createId($tableName,$recordId=null) {
+        if($recordId==null) {
+            $tablePath = self::tablePath($tableName);
+            $elements = self::scan($tablePath);
+            if(count($elements)==0) {
+                return 1;
             }
-            sort($elements);
-            return $elements;
+            return self::read($tableName, max($elements))['id'] + 1;
         }
-        return $destinationPath;
+        return $recordId;
     }
 
-    public static function scan($tablePath) {
+    private static function scan($tablePath) {
         $elements =preg_grep('/^[1-9][0-9]{0,15}$/',scandir($tablePath,0));
         sort($elements);
         return $elements;
     }
 
-    public static function filePath($path=null,$directory=true):string {
+    private static function tablePath($tableName):string {
+        return self::filePath($tableName);
+    }
+
+    private static function filePath($path=null):string {
         $destinationPath = storage_path('app/public/db/') . $path;
-        if(!File::exists($destinationPath) && $directory==true) {
+        if(!File::exists($destinationPath)) {
             File::makeDirectory($destinationPath, 0777,true,true);
             File::makeDirectory($destinationPath.'/deleted', 0777,true,true);
             File::makeDirectory($destinationPath.'/indexes', 0777,true,true);
-        }
-        if(!File::exists($destinationPath) && $directory==false) {
-            File::put($destinationPath, '');
+            File::makeDirectory($destinationPath.'/keys', 0777,true,true);
         }
         return $destinationPath;
     }
-
 }
