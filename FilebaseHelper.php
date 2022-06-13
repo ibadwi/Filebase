@@ -214,7 +214,7 @@ class FilebaseHelper {
     }
 
     private static function filePath($path=null):string {
-        $destinationPath = storage_path('app/public/db/') . $path;
+        $destinationPath = storage_path('app/db/') . $path;
         if(!File::exists($destinationPath)) {
             File::makeDirectory($destinationPath, 0777,true,true);
             File::makeDirectory($destinationPath.'/deleted', 0777,true,true);
